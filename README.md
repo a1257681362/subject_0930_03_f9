@@ -459,3 +459,64 @@ mvn test
 馆内人员可关闭、重复关闭拒绝；月份冻结后记录与照片拒收、重复冻结幂等、已冻结事实可查；
 规则 v2 发布后旧记录结论与阈值快照不改写、新记录按 v2 判定并关联更换后在布诱捕片；
 台账全动作留痕（迁移台账含前后坐标、任务台账关联责任区域）。
+
+## 修复工时与设备排程（museum-9）
+
+修复师按**工单**填报工时（起止时间、工序、设备）；设备**同一时段不能被两个工单占用**；
+跨天作业**按自然日拆分统计**；工时提交后由**负责人审核**，**退回只能补充新版本**；
+设备故障**自动生成改期建议但不悄悄改变原排程**；修复对象置为无效后，
+「修复工时与设备占用排程」的**页面、CSV 导出与后台 JSON 同口径**。
+
+### 排程规则
+
+- **按工单填报**：仅 `REPAIRING` 工单可填报；起止时间、工序、设备必填；
+  填报按「链号 `WH-000001` + 版本号」管理，`(chain_no, version_no)` 数据库唯一。
+- **负责人审核**：`PENDING → APPROVED / RETURNED`；只能审核各链最新版本；
+  退回必须填原因，退回版本封存只读、不再接受任何审核。
+- **退回只能补充新版本**：修订在被退回链上追加 `version_no+1` 的待审核版本，
+  旧版本与其审核记录永不改写；新版本重新走设备占用校验与审核。
+- **设备同时段互斥**：有效占用口径 = 每链最新版本 + 状态 `PENDING/APPROVED`
+  + 工单未作废 + 文物未撤销；时间窗重叠即拒绝，端点相接、不同设备放行；
+  设备行锁把同设备并发填报串行化。
+- **跨天按自然日拆分统计**：`GET /api/workhour-entries/stats?from=&to=` 只统计
+  审核通过工时，跨天作业按自然日切片，按「日期+工单+修复师+工序+设备」汇总分钟数。
+- **设备故障自动生成改期建议**：登记故障（故障时段、说明、报告人）后设备置
+  `FAULTY`、故障窗口内禁止新填报，并对窗口内有效排程逐条生成改期建议
+  （建议平移到预计修复完成时刻后、保持时长；`(fault_id, entry_id)` 唯一幂等）。
+  **建议只是建议**：原排程一行不改；采纳需显式操作，且是在原链上追加一个
+  待审核新版本（`source=RESCHEDULE`），忽略则原排程维持不变；故障恢复后设备回到在用。
+- **置为无效后三口径一致**：工单作废（`CANCELLED`）或文物撤销（`REVOKED`）后，
+  该对象的填报不再占用设备、不再出现在排程中——页面 `GET /workhour-schedule`、
+  CSV 导出 `GET /api/workhour-schedule/export`、后台 JSON `GET /api/workhour-schedule`
+  共用 `WorkhourService.schedule` 同一查询方法，口径完全一致。
+- 填报/审核/退回/修订/故障/建议生成/采纳/忽略全部只追加写入 `t_workhour_ledger`。
+
+### 工时接口
+
+| 方法与路径 | 作用 |
+| --- | --- |
+| `POST /api/equipment` / `GET /api/equipment?status=` | 设备建档（编号唯一）/ 列表 |
+| `POST /api/workhour-entries` | 按工单填报工时（起止时间/工序/设备），提交待审核 |
+| `GET  /api/workhour-entries?projectId=&chainNo=&status=` | 工时填报列表（含各版本） |
+| `POST /api/workhour-entries/{id}/review` | 负责人审核：APPROVE 通过 / RETURN 退回（封存只读） |
+| `POST /api/workhour-entries/{id}/revise` | 退回后修订：在该链补充新版本，旧版本不改写 |
+| `GET  /api/workhour-entries/stats?from=&to=` | 工时统计：审核通过工时按自然日拆分 |
+| `POST /api/equipment/{id}/faults` | 登记设备故障：自动生成改期建议（不改原排程） |
+| `GET  /api/equipment/faults?equipmentId=&status=` | 故障单列表 |
+| `POST /api/equipment/faults/{id}/resolve` | 故障恢复，设备回到在用 |
+| `GET  /api/reschedule-suggestions?faultId=&status=` | 改期建议列表 |
+| `POST /api/reschedule-suggestions/{id}/adopt` | 采纳建议：显式生成该链待审核新版本 |
+| `POST /api/reschedule-suggestions/{id}/ignore` | 忽略建议：原排程维持不变 |
+| `GET  /api/workhour-schedule?from=&to=&equipmentId=&projectId=` | 修复工时与设备占用排程（后台 JSON 口径） |
+| `GET  /api/workhour-schedule/export` | 同一口径 CSV 导出 |
+| `GET  /workhour-schedule` | 同一口径排程页面（Thymeleaf） |
+| `GET  /api/workhour-ledgers?equipmentId=&chainNo=` | 工时台账 |
+
+### 测试
+
+`WorkhourScheduleTest`（独立内存库）覆盖：仅 REPAIRING 工单可填报、设备同时段互斥
+（重叠拒绝/端点相接与不同设备放行）；审核通过/退回封存只读/修订只补新版本且旧版本不改写、
+只能操作最新版本；跨天作业按自然日拆分统计；设备故障自动生成改期建议且原排程不变、
+故障窗口内禁止新填报、采纳生成待审核新版本、忽略维持原排程、故障恢复设备回在用；
+修复对象置为无效（工单作废+文物撤销）后页面/CSV 导出/后台 JSON 同口径剔除且设备占用释放；
+工时台账全动作留痕。

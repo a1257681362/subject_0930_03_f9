@@ -22,6 +22,8 @@ public class ShiroConfig {
         // 台账模块为本地登记系统，REST 接口暂不挂登录；健康检查同样匿名
         chain.addPathDefinition("/api/health", "anon");
         chain.addPathDefinition("/api/**", "anon");
+        // 修复工时与设备占用排程页面（与 /api 后台、CSV 导出同口径）
+        chain.addPathDefinition("/workhour-schedule", "anon");
         chain.addPathDefinition("/error", "anon");
         chain.addPathDefinition("/**", "authc");
         return chain;

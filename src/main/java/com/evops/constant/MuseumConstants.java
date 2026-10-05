@@ -302,6 +302,49 @@ public final class MuseumConstants {
     public static final String PEST_TASK_OPEN = "OPEN";
     public static final String PEST_TASK_CLOSED = "CLOSED";
 
+    // --------------------------------------------------------------------
+    // museum-9 修复工时与设备排程
+    // --------------------------------------------------------------------
+
+    /** 修复设备状态：在用 / 故障停用 / 停用（故障恢复后回到在用） */
+    public static final String EQUIP_ACTIVE = "ACTIVE";
+    public static final String EQUIP_FAULTY = "FAULTY";
+    public static final String EQUIP_DISABLED = "DISABLED";
+
+    /** 工时填报版本状态：待审核 / 审核通过 / 已退回（封存只读，修订只能补新版本） */
+    public static final String WH_PENDING = "PENDING";
+    public static final String WH_APPROVED = "APPROVED";
+    public static final String WH_RETURNED = "RETURNED";
+
+    /** 工时版本来源：正常填报 / 采纳改期建议生成 */
+    public static final String WH_SOURCE_NORMAL = "NORMAL";
+    public static final String WH_SOURCE_RESCHEDULE = "RESCHEDULE";
+
+    /** 审核决定：通过 / 退回 */
+    public static final String WH_DECISION_APPROVE = "APPROVE";
+    public static final String WH_DECISION_RETURN = "RETURN";
+
+    /** 设备故障状态：故障中 / 已恢复 */
+    public static final String FAULT_OPEN = "OPEN";
+    public static final String FAULT_RESOLVED = "RESOLVED";
+
+    /** 改期建议状态：待处理 / 已采纳 / 已忽略 */
+    public static final String SUGGEST_PENDING = "PENDING";
+    public static final String SUGGEST_ADOPTED = "ADOPTED";
+    public static final String SUGGEST_IGNORED = "IGNORED";
+
+    /** 工时台账流水动作 */
+    public static final String ACTION_EQUIPMENT_CREATE = "EQUIPMENT_CREATE";
+    public static final String ACTION_WH_SUBMIT = "WH_SUBMIT";
+    public static final String ACTION_WH_APPROVE = "WH_APPROVE";
+    public static final String ACTION_WH_RETURN = "WH_RETURN";
+    public static final String ACTION_WH_REVISE = "WH_REVISE";
+    public static final String ACTION_EQUIP_FAULT = "EQUIP_FAULT";
+    public static final String ACTION_EQUIP_FAULT_RESOLVE = "EQUIP_FAULT_RESOLVE";
+    public static final String ACTION_SUGGEST_GENERATE = "SUGGEST_GENERATE";
+    public static final String ACTION_SUGGEST_ADOPT = "SUGGEST_ADOPT";
+    public static final String ACTION_SUGGEST_IGNORE = "SUGGEST_IGNORE";
+
     /** 虫害台账流水动作 */
     public static final String ACTION_PEST_RULE_PUBLISH = "RULE_PUBLISH";
     public static final String ACTION_PEST_POINT_CREATE = "POINT_CREATE";

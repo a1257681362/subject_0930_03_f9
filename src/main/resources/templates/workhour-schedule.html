@@ -1,0 +1,60 @@
+<!DOCTYPE html>
+<html xmlns:th="http://www.thymeleaf.org" lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <title>修复工时与设备占用排程</title>
+    <style>
+        body { font-family: "Microsoft YaHei", sans-serif; margin: 24px; color: #333; }
+        h1 { font-size: 20px; }
+        form { margin-bottom: 16px; }
+        input, button { padding: 4px 8px; }
+        table { border-collapse: collapse; width: 100%; }
+        th, td { border: 1px solid #ccc; padding: 6px 10px; font-size: 13px; text-align: left; }
+        th { background: #f0f4f8; }
+        .status-PENDING { color: #b26a00; }
+        .status-APPROVED { color: #1a7f37; }
+        .empty { color: #999; }
+        .toolbar { margin-bottom: 12px; }
+    </style>
+</head>
+<body>
+<h1>修复工时与设备占用排程</h1>
+<form method="get" action="/workhour-schedule">
+    开始 <input type="text" name="from" th:value="${from}" placeholder="yyyy-MM-dd HH:mm:ss">
+    结束 <input type="text" name="to" th:value="${to}" placeholder="yyyy-MM-dd HH:mm:ss">
+    <button type="submit">查询</button>
+</form>
+<div class="toolbar">
+    <a th:href="@{/api/workhour-schedule/export(from=${from},to=${to})}">导出 CSV（与页面同口径）</a>
+</div>
+<table>
+    <thead>
+    <tr>
+        <th>填报链</th><th>版本</th><th>工单号</th><th>文物编号</th><th>文物名称</th>
+        <th>修复师</th><th>工序</th><th>设备编号</th><th>设备名称</th>
+        <th>开始时间</th><th>结束时间</th><th>状态</th><th>来源</th>
+    </tr>
+    </thead>
+    <tbody>
+    <tr th:if="${#lists.isEmpty(rows)}">
+        <td colspan="13" class="empty">当前无有效排程（已作废工单与已撤销文物的填报不在此列）</td>
+    </tr>
+    <tr th:each="row : ${rows}">
+        <td th:text="${row.chainNo}"></td>
+        <td th:text="${row.versionNo}"></td>
+        <td th:text="${row.projectNo}"></td>
+        <td th:text="${row.relicNo}"></td>
+        <td th:text="${row.relicName}"></td>
+        <td th:text="${row.restorer}"></td>
+        <td th:text="${row.processStep}"></td>
+        <td th:text="${row.equipmentNo}"></td>
+        <td th:text="${row.equipmentName}"></td>
+        <td th:text="${#temporals.format(row.startTime, 'yyyy-MM-dd HH:mm:ss')}"></td>
+        <td th:text="${#temporals.format(row.endTime, 'yyyy-MM-dd HH:mm:ss')}"></td>
+        <td th:classappend="'status-' + ${row.status}" th:text="${row.status}"></td>
+        <td th:text="${row.source}"></td>
+    </tr>
+    </tbody>
+</table>
+</body>
+</html>
