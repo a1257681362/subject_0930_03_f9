@@ -459,3 +459,65 @@ mvn test
 馆内人员可关闭、重复关闭拒绝；月份冻结后记录与照片拒收、重复冻结幂等、已冻结事实可查；
 规则 v2 发布后旧记录结论与阈值快照不改写、新记录按 v2 判定并关联更换后在布诱捕片；
 台账全动作留痕（迁移台账含前后坐标、任务台账关联责任区域）。
+
+## 修复工时与设备排程（museum-9）
+
+修复师按工单（修复项目）填报**起止时间、工序和设备**；**设备同一时段不能被两个工单占用**；
+**跨天作业按自然日拆分统计**；工时提交后由**负责人审核**，**退回只能补充新版本**；
+**设备故障自动生成改期建议但不悄悄改变原排程**；文物（修复对象）置为无效后，
+「修复工时与设备占用排程」的**页面、导出、后台统计三端同口径**。
+
+### 工时与排程规则
+
+- **设备档案**：`t_repair_equipment` 编号全库唯一；状态 `ACTIVE/FAULT`，故障只置状态，
+  历史排程与工时事实永不删改。
+- **工时按版本管理**：修复师每次填报形成一个新版本（`t_repair_timesheet`，
+  工单内版本号递增，`uk(project_id, version_no)`），明细行（`t_repair_timesheet_line`）
+  固化起止时间/工序/设备，起止可跨天且原样落库。同一工单同时只允许一个待审核版本。
+- **负责人审核**：`SUBMITTED → APPROVED / RETURNED`；退回必填意见，退回/通过后版本
+  **封存只读**，任何补充只能另开新版本（与会签版本同一口径）。
+- **设备互斥**：`SUBMITTED/APPROVED` 版本的明细行参与占用；提交时按设备 id 升序加行锁
+  串行化并发，锁内复查——同一设备时段重叠且属于**另一个修复中工单**即拒绝；
+  退回版本的行不再占用设备。
+- **跨天拆分统计**：原始行不拆库，后台统计按自然日把每行拆到每天，
+  按（自然日+工单+设备）汇总工时分钟数。
+- **设备故障改期**：故障登记（`t_repair_equipment_fault`，单号 `FT-000001` 序列取号）后
+  设备置 `FAULT`（故障中不可填报新工时），并为受影响行（修复中工单的有效行、
+  与故障窗口重叠）自动生成改期建议（`t_repair_reschedule_suggestion`，
+  `uk(fault_id, timesheet_line_id)` 幂等）：建议起点=预计恢复时刻、时长与原行一致。
+  **建议只追加，原排程（工时明细行）绝不被悄悄改写**；采纳/忽略只改建议状态留痕，
+  实际改期只能走工时单新版本。故障恢复后设备回到 `ACTIVE`。
+- **同口径查询**：页面列表 `GET /api/repair-schedule`、CSV 导出
+  `GET /api/repair-schedule/export`、后台按日统计 `GET /api/repair-schedule/summary`
+  三端共用同一查询方法与过滤参数。文物 `REVOKED`（置为无效）后其行默认不计入；
+  `includeRevoked=true` 时三端同样保留并以 `relicStatus=REVOKED` 标明。
+- 工时提交/审核通过/审核退回/改期建议生成全部只追加写入 `t_relic_ledger`。
+
+### 工时与排程接口
+
+| 方法与路径 | 作用 |
+| --- | --- |
+| `POST /api/repair-equipment` / `GET /api/repair-equipment` / `GET /api/repair-equipment/{id}` | 设备建档（编号唯一）/ 列表 / 详情（含故障单与改期建议） |
+| `POST /api/repair-projects/{id}/timesheets` | 填报工时（起止/工序/设备；设备同时段不被两个工单占用） |
+| `GET  /api/repair-projects/{id}/timesheets` | 工单的工时单版本列表 |
+| `GET  /api/timesheets/{id}` | 工时单详情（版本+明细行） |
+| `POST /api/timesheets/{id}/review` | 负责人审核：APPROVE 通过 / RETURN 退回（退回必填意见，封存只读） |
+| `POST /api/repair-equipment/{id}/faults` | 故障登记：设备置故障中，自动生成改期建议（原排程不变） |
+| `POST /api/repair-equipment/{id}/faults/{faultId}/close` | 故障恢复：关闭故障单，设备回到在用 |
+| `GET  /api/repair-suggestions?equipmentId=&projectId=&status=` | 改期建议列表 |
+| `POST /api/repair-suggestions/{id}/adopt` / `POST /api/repair-suggestions/{id}/dismiss` | 采纳/忽略建议（只留痕，不改写原排程） |
+| `GET  /api/repair-schedule?projectId=&equipmentId=&from=&to=&includeRevoked=` | 页面查询：有效工时行与设备占用排程 |
+| `GET  /api/repair-schedule/export`（同参数） | CSV 导出：与页面同一行集同一顺序 |
+| `GET  /api/repair-schedule/summary`（同参数） | 后台统计：同一行集按自然日拆分汇总 |
+
+### 测试
+
+`RepairTimesheetScheduleTest`（独立内存库）覆盖：设备编号唯一；未开工工单不能填报；
+起止时间校验；同一工单同时仅一个待审核版本；设备同时段跨工单占用拒绝、紧邻不重叠允许；
+退回必填意见、封存只读、退回后设备占用释放、补充只能另开新版本（版本号递增）；
+排程页面只含有效版本行；跨天作业按自然日拆分（4h/24h/9h）与总量一致；
+设备故障自动生成改期建议（建议起点=预计恢复时刻）、故障中不可填报、
+原排程不被故障/采纳悄悄改写、故障恢复设备回到在用；
+文物置为无效（REVOKED）后页面/导出/后台统计默认同口径剔除、
+`includeRevoked=true` 三端同样保留并标明 REVOKED、页面行数=导出行数、页面工时总量=统计总量；
+台账全动作留痕（TS_SUBMIT/TS_RETURN/TS_APPROVE/RESCHEDULE_SUGGEST）。

@@ -313,4 +313,36 @@ public final class MuseumConstants {
     public static final String ACTION_PEST_TASK_GENERATE = "TASK_GENERATE";
     public static final String ACTION_PEST_TASK_CLOSE = "TASK_CLOSE";
     public static final String ACTION_PEST_MONTH_FREEZE = "MONTH_FREEZE";
+
+    // --------------------------------------------------------------------
+    // museum-9 修复工时与设备排程
+    // --------------------------------------------------------------------
+
+    /** 修复设备状态：在用 / 故障中（故障不删历史排程，恢复后回到在用） */
+    public static final String EQUIP_ACTIVE = "ACTIVE";
+    public static final String EQUIP_FAULT = "FAULT";
+
+    /** 工时单版本状态：待审核 / 审核通过 / 已退回（退回封存只读，只能补充新版本） */
+    public static final String TS_SUBMITTED = "SUBMITTED";
+    public static final String TS_APPROVED = "APPROVED";
+    public static final String TS_RETURNED = "RETURNED";
+
+    /** 工时审核决定：通过 / 退回 */
+    public static final String REVIEW_APPROVE = "APPROVE";
+    public static final String REVIEW_RETURN = "RETURN";
+
+    /** 设备故障单状态：故障中 / 已恢复 */
+    public static final String FAULT_OPEN = "OPEN";
+    public static final String FAULT_CLOSED = "CLOSED";
+
+    /** 改期建议状态：待处理 / 已采纳 / 已忽略（采纳不改写原排程，仅记录处理意见） */
+    public static final String SUGGEST_PENDING = "PENDING";
+    public static final String SUGGEST_ADOPTED = "ADOPTED";
+    public static final String SUGGEST_DISMISSED = "DISMISSED";
+
+    /** 台账流水动作：工时提交 / 审核通过 / 审核退回 / 故障改期建议 */
+    public static final String ACTION_TS_SUBMIT = "TS_SUBMIT";
+    public static final String ACTION_TS_APPROVE = "TS_APPROVE";
+    public static final String ACTION_TS_RETURN = "TS_RETURN";
+    public static final String ACTION_RESCHEDULE_SUGGEST = "RESCHEDULE_SUGGEST";
 }
