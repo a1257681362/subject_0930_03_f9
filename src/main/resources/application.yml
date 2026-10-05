@@ -1,0 +1,79 @@
+server:
+  port: 8080
+  servlet:
+    encoding:
+      charset: UTF-8
+      force: true
+
+spring:
+  application:
+    name: evops-base
+  profiles:
+    active: dev
+  jackson:
+    time-zone: Asia/Shanghai
+    serialization:
+      write-dates-as-timestamps: false
+  datasource:
+    url: jdbc:h2:file:./data/evops;AUTO_SERVER=TRUE
+    username: sa
+    password:
+    driver-class-name: org.h2.Driver
+  h2:
+    console:
+      enabled: false
+  servlet:
+    multipart:
+      max-file-size: 20MB
+      max-request-size: 100MB
+  sql:
+    init:
+      mode: always
+      schema-locations: classpath:schema.sql
+
+# 文物多角度影像归档（museum-2）
+museum:
+  image:
+    # 内容寻址物理存储根目录（SHA-256 分桶），作废不删文件
+    storage-root: ./data/images
+    # 归档分辨率下限（像素），低于即逐张拒收
+    min-width-px: 800
+    min-height-px: 800
+  # 修复材料批号与用量核算（museum-3）
+  material:
+    # 计划/实际用量差异复核阈值（%），实际相对计划偏差严格超过该值触发复核
+    variance-threshold-pct: 20
+    # 差异复核定时扫描间隔（毫秒）；重启后启动即补扫一次，扫描按明细行幂等
+    review-scan-interval-ms: 60000
+    review-scan-on-startup: true
+  # 修复方案会签（museum-4）
+  countersign:
+    # 按文物风险（保存等级）配置馆内专家/外部专家/保管人员的会签顺序
+    sign-order:
+      ONE: EXTERNAL,INTERNAL,CUSTODIAN
+      TWO: INTERNAL,EXTERNAL,CUSTODIAN
+      THREE: INTERNAL,CUSTODIAN,EXTERNAL
+  # 展厅温湿度与照度巡检（museum-5）
+  env:
+    # 展厅文物材质在生效规则中无匹配条目时的兜底采样频率（分钟）
+    default-interval-min: 240
+    # 应用就绪后补生成到期巡检任务（重启场景），之后按固定间隔扫描
+    generate-on-startup: true
+    generate-interval-ms: 60000
+  # 文物库房库位与密集架预约（museum-7）
+  storage:
+    # 预约保留时长（分钟）：超时未开工自动释放（已开工 MOVING 不释放）
+    reservation-expire-minutes: 30
+    # 预约超时释放定时扫描间隔（毫秒）；重启后启动即补扫一次
+    expire-scan-interval-ms: 60000
+    expire-scan-on-startup: true
+
+mybatis-plus:
+  mapper-locations: classpath*:mapper/**/*.xml
+  type-aliases-package: com.evops
+  configuration:
+    map-underscore-to-camel-case: true
+
+logging:
+  level:
+    com.evops: INFO
